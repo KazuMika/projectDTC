@@ -1,0 +1,6 @@
+classes=1
+train=/home/quantan/DTCdataset/DTCcocoformat/trainvalno5k.txt
+valid=/home/quantan/DTCdataset/DTCcocoformat/5k.txt
+names=/home/quantan/DTCdataset/DTCcocoformat/coco.names
+backup=backup/
+eval=coco
