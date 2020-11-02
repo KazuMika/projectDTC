@@ -444,9 +444,7 @@ class Counter(object):
         height = cap.get(4)
         line_down = int(9*(height/10))
         t1 = threading.Thread(target=self.recall_q2, args=(line_down, height, movie_id, basename))
-        #t2 = threading.Thread(target=self.detection_q, args=(line_down, height, movie_id, basename,))
         t1.start()
-        # t2.start()
         i = 0
 
         while(cap.isOpened()):
@@ -460,28 +458,9 @@ class Counter(object):
                 break
             if self.video:
                 video.write(frame)
-        print(i)
-
-    def recall_q(self):
-        while self.flag_of_realtime:
-            if self.q:
-                newFrame = self.q.popleft()
-                if newFrame is not None:
-                    self.recallq.append(newFrame)  # 新しいframeはrecallにいれる
-                    self.p += 1
-                    if len(self.recallq) > 5:
-                        self.recallq.popleft()
-                    if self.p % 2 == 0 and self.flag_of_recall_q:  # 確率Pで検出を行う
-                        cords = self.detect_image(newFrame)
-                        if cords is not None:  # 検出ができた時は、recallqの全てframeを処理する
-                            self.flag_of_recall_q = False
-                            self.flag_of_detection_q = True
-                else:
-                    continue
-#
 
     def recall_q2(self, line_down, height, movie_id, basename):
-        t = time.time()
+
         LC = self.l/self.frame_rate  # L/C
         Ps = 0.1
         Pd = 1  # Pdは１から減る
@@ -491,13 +470,8 @@ class Counter(object):
             tracker = Sort(1, self.max_age, line_down, movie_id,
                            self.image_dir, '', basename)
         else:
-            tracker = Iou_Tracker(
-
-                line_down, self.image_dir, movie_id, self.max_age, '', basename)
-        # Qはrecallqで、一時的に保存する
-        # 検出を行わない時にQに入れる
+            tracker = Iou_Tracker(line_down, self.image_dir, movie_id, self.max_age, '', basename)
         i = 0
-        flag = False
         while self.flag_of_realtime or self.q:
             if self.q:
                 i += 1
@@ -506,19 +480,16 @@ class Counter(object):
                     Ran = random.random()
                     if len(self.recallq) < 10:
                         self.recallq.append(newFrame)
+
                         continue
                     if Ran < Pd:  # 確率Ranで検出
                         # fps1 = self.fpsWithTick.get()
                         # self.fps_count += fps1
                         # self.frame_count += 1
                         cords = self.detect_image(newFrame)  # 変数cordsをそのまま使用 cords＝座標
-                        # 動画のどこかに検出された座標の値を表示させる
-                        # 検出できたらどこかに残して、動画に出力する
                         if cords:  # 検出ができた時に Pdを1にしてQをdetect
                             Pd = 1
                             self.w = 0
-                            # Whileでrecall_qの中のデーターを検出することを繰り返す
-                            # detectするのはここだけ
                             while self.recallq:
                                 img = self.recallq.popleft()
                                 detectQ = self.detect_image(img)  # 座標の位置がリターンされる
@@ -530,40 +501,9 @@ class Counter(object):
                                 Pd = max(Pd - Ps, LC)
                     else:
                         if Tw > len(self.recallq):
-                            self.recallq.append(newFrame)  # EnQu(バッファに追加)
+                            self.recallq.append(newFrame)
                         else:
                             self.recallq.append(newFrame)
                             self.recallq.popleft()
                 else:
                     continue
-        t = time.time() - t
-        print('end_time:{0:0.3f} seconds'.format(t))
-
-    def detection_q(self, line_down, height, movie_id, basename):
-        if self.tracking_alg == 'sort':
-            tracker = Sort(1, self.max_age, line_down, movie_id,
-                           self.image_dir, '', basename)
-        else:
-            tracker = Iou_Tracker(
-                line_down, self.image_dir, movie_id, self.max_age, '', basename)
-
-        while self.flag_of_realtime:
-            if self.flag_of_detection_q:
-                try:
-                    if self.tracking_alg == 'sort':
-                        frame = self.recallq.popleft()
-                        cords = np.array(self.detect_image(frame))
-                        print(cords)
-                    else:
-                        frame = self.recallq.popleft()
-                        cords = self.detect_image(frame)
-                        print(cords)
-                    tracker.update(cords, frame, fps_eval=self.fps_eval)
-                except IndexError:
-                    self.flag_of_detection_q = False
-                    continue
-                self.i += 1
-                if self.i > 10:
-                    self.flag_of_detection_q = False
-                    self.flag_of_recall_q = True
-                    self.i = 0
